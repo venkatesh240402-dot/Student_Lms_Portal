@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+*.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+
+# React Native
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+.expo/
+dist/
+build/
+
+# Android
+*.apk
+*.aab
+android/app/build/
+android/.gradle/
+
+# Uploads (backend)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Metro
+.metro-health-check*
