@@ -69,7 +69,10 @@ async function getAttendance(req, res) {
       ORDER BY s.name ASC
     `, [classId, subjectId, date, classId]);
 
-    res.json({ success: true, data: rows });
+    // If any student has an attendance record, the session is locked
+    const isLocked = rows.some(r => r.status !== null);
+
+    res.json({ success: true, data: rows, isLocked });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -82,6 +85,22 @@ async function markAttendance(req, res) {
     return res.status(400).json({ success: false, message: 'Missing required fields or records list.' });
   }
 
+  try {
+    // Check if attendance has already been marked for this class+subject+date+hour
+    const [[existing]] = await pool.query(
+      'SELECT COUNT(*) AS cnt FROM attendance WHERE class_id = ? AND subject_id = ? AND date = ? AND hour_no = ?',
+      [classId, subjectId, date, hourNo]
+    );
+    if (existing.cnt > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Attendance for this class, subject and date has already been submitted and cannot be edited.'
+      });
+    }
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -92,8 +111,7 @@ async function markAttendance(req, res) {
 
       await conn.query(
         `INSERT INTO attendance (student_id, subject_id, class_id, date, hour_no, status)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE status = VALUES(status)`,
+         VALUES (?, ?, ?, ?, ?, ?)`,
         [studentId, subjectId, classId, date, hourNo, status]
       );
     }

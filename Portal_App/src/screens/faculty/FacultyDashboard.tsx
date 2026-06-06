@@ -128,6 +128,7 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
   // Selection states
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [attendanceDate, setAttendanceDate] = useState('2026-06-06');
+  const [attendanceLocked, setAttendanceLocked] = useState(false);
   const [students, setStudents] = useState<StudentRecord[]>([]);
 
   // Note uploads state
@@ -428,6 +429,7 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
           status: s.status || 'present'
         }));
         setStudents(roster);
+        setAttendanceLocked(res.data.isLocked === true);
       }
     } catch (e) {
       console.error('Failed to fetch roster', e);
@@ -787,9 +789,11 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
                       <TouchableOpacity
                         style={[
                           styles.toggleBtn,
-                          student.status === 'present' && styles.presentActiveBtn
+                          student.status === 'present' && styles.presentActiveBtn,
+                          attendanceLocked && { opacity: 0.5 }
                         ]}
-                        onPress={() => toggleStudentStatus(student.studentId, 'present')}
+                        onPress={() => !attendanceLocked && toggleStudentStatus(student.studentId, 'present')}
+                        disabled={attendanceLocked}
                       >
                         <Text style={[styles.toggleBtnText, student.status === 'present' && styles.activeBtnText]}>P</Text>
                       </TouchableOpacity>
@@ -797,9 +801,11 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
                       <TouchableOpacity
                         style={[
                           styles.toggleBtn,
-                          student.status === 'absent' && styles.absentActiveBtn
+                          student.status === 'absent' && styles.absentActiveBtn,
+                          attendanceLocked && { opacity: 0.5 }
                         ]}
-                        onPress={() => toggleStudentStatus(student.studentId, 'absent')}
+                        onPress={() => !attendanceLocked && toggleStudentStatus(student.studentId, 'absent')}
+                        disabled={attendanceLocked}
                       >
                         <Text style={[styles.toggleBtnText, student.status === 'absent' && styles.activeBtnText]}>A</Text>
                       </TouchableOpacity>
@@ -807,9 +813,11 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
                       <TouchableOpacity
                         style={[
                           styles.toggleBtn,
-                          student.status === 'late' && styles.lateActiveBtn
+                          student.status === 'late' && styles.lateActiveBtn,
+                          attendanceLocked && { opacity: 0.5 }
                         ]}
-                        onPress={() => toggleStudentStatus(student.studentId, 'late')}
+                        onPress={() => !attendanceLocked && toggleStudentStatus(student.studentId, 'late')}
+                        disabled={attendanceLocked}
                       >
                         <Text style={[styles.toggleBtnText, student.status === 'late' && styles.activeBtnText]}>L</Text>
                       </TouchableOpacity>
@@ -817,17 +825,23 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
                   </View>
                 ))}
 
-                <TouchableOpacity
-                  style={styles.saveBtn}
-                  onPress={handleSaveAttendance}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Save Roster</Text>
-                  )}
-                </TouchableOpacity>
+                {attendanceLocked ? (
+                  <View style={{ marginTop: 16, backgroundColor: '#16a34a22', borderRadius: 10, padding: 12, alignItems: 'center' }}>
+                    <Text style={{ color: '#4ade80', fontWeight: '700', fontSize: 14 }}>✅ Attendance Submitted — Read Only</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.saveBtn}
+                    onPress={handleSaveAttendance}
+                    disabled={submitting}
+                  >
+                    {submitting ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.saveBtnText}>Save Roster</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>
