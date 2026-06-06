@@ -87,10 +87,14 @@ async function markAttendance(req, res) {
     await conn.beginTransaction();
 
     for (const record of records) {
-      // Call our optimized stored procedure
+      const { studentId, status } = record;
+      if (!studentId || !status) continue;
+
       await conn.query(
-        'CALL sp_mark_attendance(?, ?, ?, ?, ?, ?, @msg)',
-        [record.studentId, subjectId, classId, date, hourNo, record.status]
+        `INSERT INTO attendance (student_id, subject_id, class_id, date, hour_no, status)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE status = VALUES(status)`,
+        [studentId, subjectId, classId, date, hourNo, status]
       );
     }
 
