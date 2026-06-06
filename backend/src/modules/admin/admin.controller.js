@@ -551,8 +551,8 @@ async function mapTeacherToClassSubject(req, res) {
 // -------------------------------------------------------------
 async function mapStudentDeptYear(req, res) {
   const { studentId, departmentId, year, classId, semesterId } = req.body;
-  if (!studentId || !departmentId || !year || !semesterId) {
-    return res.status(400).json({ success: false, message: 'studentId, departmentId, year, semesterId are required.' });
+  if (!studentId || !departmentId || !year) {
+    return res.status(400).json({ success: false, message: 'studentId, departmentId and year are required.' });
   }
 
   const conn = await pool.getConnection();
@@ -565,14 +565,16 @@ async function mapStudentDeptYear(req, res) {
       [departmentId, year, classId || null, studentId]
     );
 
-    // 2. Log historical academic record
-    const [[dept]] = await conn.query('SELECT academic_year FROM departments WHERE id = ?', [departmentId]);
-    await conn.query(
-      `INSERT INTO student_class_history (student_id, class_id, academic_year, semester_id, start_date)
-       VALUES (?, ?, ?, ?, CURDATE())
-       ON DUPLICATE KEY UPDATE class_id = VALUES(class_id)`,
-      [studentId, classId, dept.academic_year, semesterId]
-    );
+    // 2. Log historical academic record only if semesterId is provided
+    if (semesterId) {
+      const [[dept]] = await conn.query('SELECT academic_year FROM departments WHERE id = ?', [departmentId]);
+      await conn.query(
+        `INSERT INTO student_class_history (student_id, class_id, academic_year, semester_id, start_date)
+         VALUES (?, ?, ?, ?, CURDATE())
+         ON DUPLICATE KEY UPDATE class_id = VALUES(class_id)`,
+        [studentId, classId, dept.academic_year, semesterId]
+      );
+    }
 
     await conn.commit();
     res.json({ success: true, message: 'Student department/year assignment updated.' });
