@@ -457,25 +457,92 @@ async function addTeacher(req, res) {
 }
 
 // -------------------------------------------------------------
-// 6. Mapping: Teacher to Class & Subject
+// 6. GET: Teacher Class Mappings
+// -------------------------------------------------------------
+async function getTeacherMappings(req, res) {
+  const { teacherId } = req.query;
+  if (!teacherId) {
+    return res.status(400).json({ success: false, message: 'teacherId query param required.' });
+  }
+  try {
+    const [rows] = await pool.query(`
+      SELECT
+        cs.teacher_id    AS teacherId,
+        d.id             AS departmentId,
+        d.code           AS departmentCode,
+        d.name           AS departmentName,
+        c.year           AS year,
+        c.section        AS section,
+        s.id             AS subjectId,
+        s.code           AS subjectCode,
+        s.name           AS subjectName
+      FROM class_subjects cs
+      JOIN classes c  ON cs.class_id  = c.id
+      JOIN departments d ON c.department_id = d.id
+      JOIN subjects s ON cs.subject_id = s.id
+      WHERE cs.teacher_id = ?
+      ORDER BY d.code, c.year, c.section, s.code
+    `, [teacherId]);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// -------------------------------------------------------------
+// 6b. PUT: Set Teacher Class Mappings (replace all for this teacher)
+// Payload: { teacherId, mappings: [{departmentId, year, section, subjectId}] }
 // -------------------------------------------------------------
 async function mapTeacherToClassSubject(req, res) {
-  const { classId, subjectId, teacherId } = req.body;
-  if (!classId || !subjectId || !teacherId) {
+  const { teacherId, mappings } = req.body;
+  if (!teacherId || !Array.isArray(mappings)) {
     return res.status(400).json({ success: false, message: 'Missing classId, subjectId or teacherId.' });
   }
 
+  const conn = await pool.getConnection();
   try {
-    await pool.query(
-      `INSERT INTO class_subjects (class_id, subject_id, teacher_id) 
-       VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE teacher_id = VALUES(teacher_id)`,
-      [classId, subjectId, teacherId]
-    );
+    await conn.beginTransaction();
 
-    res.json({ success: true, message: 'Teacher successfully mapped to class subject.' });
+    // Remove all existing mappings for this teacher
+    await conn.query('DELETE FROM class_subjects WHERE teacher_id = ?', [teacherId]);
+
+    // Re-insert the new set
+    for (const m of mappings) {
+      const { departmentId, year, section, subjectId } = m;
+
+      // Resolve class_id from department + year + section
+      const [[cls]] = await conn.query(
+        'SELECT id FROM classes WHERE department_id = ? AND year = ? AND section = ?',
+        [departmentId, year, section]
+      );
+
+      if (!cls) {
+        // Auto-create class if it doesn't exist
+        const [newCls] = await conn.query(
+          'INSERT INTO classes (department_id, year, section) VALUES (?, ?, ?)',
+          [departmentId, year, section]
+        );
+        await conn.query(
+          'INSERT INTO class_subjects (class_id, subject_id, teacher_id) VALUES (?, ?, ?)',
+          [newCls.insertId, subjectId, teacherId]
+        );
+      } else {
+        await conn.query(
+          `INSERT INTO class_subjects (class_id, subject_id, teacher_id)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE teacher_id = VALUES(teacher_id)`,
+          [cls.id, subjectId, teacherId]
+        );
+      }
+    }
+
+    await conn.commit();
+    res.json({ success: true, message: 'Teacher class assignments updated.' });
   } catch (error) {
+    await conn.rollback();
     res.status(500).json({ success: false, message: error.message });
+  } finally {
+    conn.release();
   }
 }
 
@@ -599,6 +666,7 @@ module.exports = {
   bulkImportStudents,
   addTeacher,
   mapTeacherToClassSubject,
+  getTeacherMappings,
   mapStudentDeptYear,
   getStudents,
   getTeachers,

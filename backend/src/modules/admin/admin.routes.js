@@ -10,6 +10,7 @@ const {
   bulkImportStudents,
   addTeacher,
   mapTeacherToClassSubject,
+  getTeacherMappings,
   mapStudentDeptYear,
   getStudents,
   getTeachers,
@@ -44,6 +45,7 @@ router.get('/teachers', getTeachers);
 router.post('/teachers', addTeacher);
 router.get('/subjects', getAllSubjects);
 router.post('/subjects', createSubject);
+router.get('/mappings/teachers-classes', getTeacherMappings);
 router.put('/mappings/teachers-classes', mapTeacherToClassSubject);
 router.put('/mappings/students-dept-year', mapStudentDeptYear);
 
