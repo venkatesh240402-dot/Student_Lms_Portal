@@ -570,14 +570,14 @@ async function getAllSubjects(req, res) {
 
 // New endpoint: create a subject
 async function createSubject(req, res) {
-  const { code, name } = req.body;
+  const { code, name, departmentId } = req.body;
   if (!code || !name) {
     return res.status(400).json({ success: false, message: 'Subject code and name are required.' });
   }
   try {
     const [result] = await pool.query(
-      'INSERT INTO subjects (code, name) VALUES (?, ?)',
-      [code.trim(), name.trim()]
+      'INSERT INTO subjects (code, name, department_id) VALUES (?, ?, ?)',
+      [code.trim(), name.trim(), departmentId || null]
     );
     res.status(201).json({
       success: true,

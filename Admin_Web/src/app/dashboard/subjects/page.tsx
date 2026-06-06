@@ -10,10 +10,18 @@ interface Subject {
   name: string;
 }
 
+interface Department {
+  id: number;
+  code: string;
+  name: string;
+}
+
 export default function SubjectsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  const [departmentId, setDepartmentId] = useState<string>('');
   const [loadingList, setLoadingList] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState('');
@@ -23,13 +31,15 @@ export default function SubjectsPage() {
   const fetchSubjects = async () => {
     try {
       setLoadingList(true);
-      const res = await apiClient.get('/admin/subjects');
-      if (res.data?.success) {
-        setSubjects(res.data.data);
-      }
+      const [subRes, deptRes] = await Promise.all([
+        apiClient.get('/admin/subjects'),
+        apiClient.get('/admin/departments'),
+      ]);
+      if (subRes.data?.success) setSubjects(subRes.data.data);
+      if (deptRes.data?.success) setDepartments(deptRes.data.data);
     } catch (e) {
       console.error('Failed to load subjects', e);
-      setGeneralError('Failed to load subjects. Ensure API mock mode is active.');
+      setGeneralError('Failed to load data.');
     } finally {
       setLoadingList(false);
     }
@@ -49,6 +59,7 @@ export default function SubjectsPage() {
     const validationErrors: Record<string, string> = {};
     if (!code.trim()) validationErrors.code = 'Subject Code is required';
     if (!name.trim()) validationErrors.name = 'Subject Name is required';
+    if (!departmentId) validationErrors.departmentId = 'Department is required';
 
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
@@ -60,12 +71,14 @@ export default function SubjectsPage() {
       const res = await apiClient.post('/admin/subjects', {
         code: code.trim(),
         name: name.trim(),
+        departmentId: parseInt(departmentId, 10),
       });
 
       if (res.data?.success) {
         setSuccessMsg(`Subject "${res.data.data.name}" added successfully!`);
         setCode('');
         setName('');
+        setDepartmentId('');
         fetchSubjects(); // Refresh listing
       }
     } catch (err: any) {
@@ -138,6 +151,25 @@ export default function SubjectsPage() {
           <form onSubmit={handleSubmit} className={styles.form}>
             {generalError && <div className={styles.alert}>{generalError}</div>}
             {successMsg && <div className={styles.successAlert}>{successMsg}</div>}
+
+            <div className={styles.inputGroup}>
+              <label htmlFor="deptId" className={styles.label}>Department</label>
+              <select
+                id="deptId"
+                value={departmentId}
+                onChange={(e) => setDepartmentId(e.target.value)}
+                disabled={submitting}
+                className={styles.input}
+              >
+                <option value="">-- Select Department --</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    [{d.code}] {d.name}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.departmentId && <span className={styles.errorText}>{fieldErrors.departmentId}</span>}
+            </div>
 
             <div className={styles.inputGroup}>
               <label htmlFor="code" className={styles.label}>Subject Code</label>
