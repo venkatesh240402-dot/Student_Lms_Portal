@@ -568,6 +568,29 @@ async function getAllSubjects(req, res) {
   }
 }
 
+// New endpoint: create a subject
+async function createSubject(req, res) {
+  const { code, name } = req.body;
+  if (!code || !name) {
+    return res.status(400).json({ success: false, message: 'Subject code and name are required.' });
+  }
+  try {
+    const [result] = await pool.query(
+      'INSERT INTO subjects (code, name) VALUES (?, ?)',
+      [code.trim(), name.trim()]
+    );
+    res.status(201).json({
+      success: true,
+      data: { id: result.insertId, code: code.trim(), name: name.trim() }
+    });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ success: false, message: `Subject code "${code}" already exists.` });
+    }
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   getDashboardStats,
   getDepartments,
@@ -579,5 +602,6 @@ module.exports = {
   mapStudentDeptYear,
   getStudents,
   getTeachers,
-  getAllSubjects
+  getAllSubjects,
+  createSubject
 };

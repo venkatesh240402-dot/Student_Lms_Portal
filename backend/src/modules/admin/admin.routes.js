@@ -12,7 +12,9 @@ const {
   mapTeacherToClassSubject,
   mapStudentDeptYear,
   getStudents,
-  getTeachers
+  getTeachers,
+  getAllSubjects,
+  createSubject
 } = require('./admin.controller');
 
 const router = express.Router();
@@ -40,7 +42,8 @@ router.post('/students', addStudent);
 router.post('/students/bulk', upload.single('file'), bulkImportStudents);
 router.get('/teachers', getTeachers);
 router.post('/teachers', addTeacher);
-router.get('/subjects', getAllSubjects); // <-- new route
+router.get('/subjects', getAllSubjects);
+router.post('/subjects', createSubject);
 router.put('/mappings/teachers-classes', mapTeacherToClassSubject);
 router.put('/mappings/students-dept-year', mapStudentDeptYear);
 
