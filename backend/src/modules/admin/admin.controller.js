@@ -63,7 +63,16 @@ async function getDashboardStats(req, res) {
 // -------------------------------------------------------------
 async function getDepartments(req, res) {
   try {
-    const [rows] = await pool.query('SELECT * FROM departments');
+    const [rows] = await pool.query(`
+      SELECT
+        id,
+        code,
+        name,
+        academic_year   AS academicYear,
+        max_sections    AS maxSections,
+        students_per_class AS studentsPerClass
+      FROM departments
+    `);
     // Load subjects for each department
     const departments = [];
     for (const dept of rows) {

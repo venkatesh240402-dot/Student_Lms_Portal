@@ -157,7 +157,9 @@ export default function DepartmentsPage() {
                 <div className={styles.specsList}>
                   <div className={styles.specItem}>
                     <span className={styles.specLabel}>Sections</span>
-                    <span className={styles.specVal}>{dept.maxSections} (A, B, C)</span>
+                    <span className={styles.specVal}>
+                      {dept.maxSections} ({Array.from({ length: dept.maxSections }, (_, i) => String.fromCharCode(65 + i)).join(', ')})
+                    </span>
                   </div>
                   <div className={styles.specItem}>
                     <span className={styles.specLabel}>Capacity</span>
