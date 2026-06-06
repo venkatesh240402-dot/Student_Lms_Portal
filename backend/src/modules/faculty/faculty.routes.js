@@ -16,7 +16,10 @@ const {
   enterInternalMarks,
   enterPracticalMarks,
   enterSemesterMarks,
-  publishSemesterResults
+  publishSemesterResults,
+  getAssignedClasses,
+  getAssignments,
+  createAssignment
 } = require('./faculty.controller');
 
 const router = express.Router();
@@ -37,6 +40,7 @@ router.use(authenticate);
 router.use(authorize('faculty'));
 
 router.get('/dashboard', getFacultyDashboard);
+router.get('/assigned-classes', getAssignedClasses);
 router.get('/attendance', getAttendance);
 router.post('/attendance', markAttendance);
 router.get('/notes', getNotes);
@@ -44,6 +48,8 @@ router.post('/notes', upload.single('file'), uploadNote);
 router.get('/queries', getQueries);
 router.get('/queries/:id', getQueryDetails);
 router.put('/queries/:id/reply', replyToQuery);
+router.get('/assignments', getAssignments);
+router.post('/assignments', createAssignment);
 router.get('/assignments/submissions', getSubmissions);
 router.put('/assignments/submissions/:id/grade', gradeSubmission);
 router.post('/marks/internal', enterInternalMarks);

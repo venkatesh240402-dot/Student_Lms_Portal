@@ -365,6 +365,85 @@ async function publishSemesterResults(req, res) {
   }
 }
 
+// -------------------------------------------------------------
+// 8. Assigned Classes (for class selector dropdown)
+// -------------------------------------------------------------
+async function getAssignedClasses(req, res) {
+  const teacherId = req.user.id;
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        c.id AS classId,
+        CONCAT(d.code, '-', c.year, c.section) AS className,
+        c.year, c.section,
+        d.code AS deptCode, d.name AS deptName,
+        sub.id AS subjectId, sub.code AS subjectCode, sub.name AS subjectName
+      FROM class_subjects cs
+      JOIN classes c ON cs.class_id = c.id
+      JOIN departments d ON c.department_id = d.id
+      JOIN subjects sub ON cs.subject_id = sub.id
+      WHERE cs.teacher_id = ?
+      ORDER BY className
+    `, [teacherId]);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// -------------------------------------------------------------
+// 9. Assignments (GET list + POST create)
+// -------------------------------------------------------------
+async function getAssignments(req, res) {
+  const teacherId = req.user.id;
+  const { classId } = req.query;
+  try {
+    let query = `
+      SELECT a.*, 
+             CONCAT(d.code, '-', c.year, c.section) AS className,
+             sub.name AS subjectName,
+             COUNT(sub2.id) AS submissionCount
+      FROM assignments a
+      JOIN classes c ON a.class_id = c.id
+      JOIN departments d ON c.department_id = d.id
+      JOIN subjects sub ON a.subject_id = sub.id
+      LEFT JOIN assignment_submissions sub2 ON sub2.assignment_id = a.id
+      WHERE a.created_by = ?
+    `;
+    const params = [teacherId];
+    if (classId) {
+      query += ' AND a.class_id = ?';
+      params.push(classId);
+    }
+    query += ' GROUP BY a.id ORDER BY a.due_date DESC';
+
+    const [rows] = await pool.query(query, params);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+async function createAssignment(req, res) {
+  const teacherId = req.user.id;
+  const { title, description, classId, subjectId, dueDate } = req.body;
+  if (!title || !classId || !subjectId || !dueDate) {
+    return res.status(400).json({ success: false, message: 'title, classId, subjectId and dueDate are required.' });
+  }
+  try {
+    const [result] = await pool.query(`
+      INSERT INTO assignments (title, description, class_id, subject_id, due_date, created_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [title, description || null, classId, subjectId, dueDate, teacherId]);
+    res.status(201).json({
+      success: true,
+      data: { id: result.insertId, title, dueDate }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   getFacultyDashboard,
   getAttendance,
@@ -379,5 +458,8 @@ module.exports = {
   enterInternalMarks,
   enterPracticalMarks,
   enterSemesterMarks,
-  publishSemesterResults
+  publishSemesterResults,
+  getAssignedClasses,
+  getAssignments,
+  createAssignment
 };

@@ -9,7 +9,9 @@ const {
   uploadAssignmentSubmission,
   getStudentQueries,
   raiseQuery,
-  getStudentNotes
+  getStudentNotes,
+  getStudentAssignments,
+  getSubjectsWithTeacher
 } = require('./student.controller');
 
 const router = express.Router();
@@ -32,9 +34,11 @@ router.use(authorize('student'));
 router.get('/dashboard', getStudentDashboard);
 router.get('/attendance', getStudentAttendance);
 router.get('/marks', getStudentMarks);
+router.get('/assignments', getStudentAssignments);
 router.post('/assignments', upload.single('file'), uploadAssignmentSubmission);
 router.get('/queries', getStudentQueries);
 router.post('/queries', raiseQuery);
 router.get('/notes', getStudentNotes);
+router.get('/subjects', getSubjectsWithTeacher);
 
 module.exports = router;

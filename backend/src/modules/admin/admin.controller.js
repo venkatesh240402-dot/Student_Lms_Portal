@@ -508,6 +508,47 @@ async function mapStudentDeptYear(req, res) {
   }
 }
 
+// -------------------------------------------------------------
+// 8. List Students
+// -------------------------------------------------------------
+async function getStudents(req, res) {
+  try {
+    const [rows] = await pool.query(`
+      SELECT s.id, s.unique_id AS uniqueId, s.name, 
+             DATE_FORMAT(s.dob, '%d-%m-%Y') AS dob,
+             s.year, s.class_id AS classId,
+             d.id AS departmentId, d.code AS departmentCode, d.name AS departmentName,
+             c.section AS className
+      FROM students s
+      JOIN departments d ON s.department_id = d.id
+      LEFT JOIN classes c ON s.class_id = c.id
+      ORDER BY d.code, s.year, c.section, s.name
+    `);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// -------------------------------------------------------------
+// 9. List Teachers
+// -------------------------------------------------------------
+async function getTeachers(req, res) {
+  try {
+    const [rows] = await pool.query(`
+      SELECT t.id, t.unique_id AS uniqueId, t.name,
+             DATE_FORMAT(t.dob, '%d-%m-%Y') AS dob,
+             d.id AS departmentId, d.code AS departmentCode, d.name AS departmentName
+      FROM teachers t
+      JOIN departments d ON t.department_id = d.id
+      ORDER BY d.code, t.name
+    `);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   getDashboardStats,
   getDepartments,
@@ -516,5 +557,7 @@ module.exports = {
   bulkImportStudents,
   addTeacher,
   mapTeacherToClassSubject,
-  mapStudentDeptYear
+  mapStudentDeptYear,
+  getStudents,
+  getTeachers
 };

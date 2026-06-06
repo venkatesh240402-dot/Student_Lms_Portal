@@ -264,6 +264,66 @@ async function getStudentNotes(req, res) {
   }
 }
 
+// -------------------------------------------------------------
+// 7. Student Assignments (list with submission status)
+// -------------------------------------------------------------
+async function getStudentAssignments(req, res) {
+  const studentId = req.user.id;
+  try {
+    const [[student]] = await pool.query('SELECT class_id FROM students WHERE id = ?', [studentId]);
+    if (!student || !student.class_id) {
+      return res.json({ success: true, data: [] });
+    }
+    const [rows] = await pool.query(`
+      SELECT 
+        a.id, a.title, a.description,
+        DATE_FORMAT(a.due_date, '%Y-%m-%d') AS dueDate,
+        sub.name AS subjectName,
+        t.name AS createdByName,
+        asub.id AS submissionId,
+        asub.status AS submissionStatus,
+        asub.file_url AS submissionFileUrl,
+        asub.marks_obtained AS marksObtained,
+        asub.feedback
+      FROM assignments a
+      JOIN subjects sub ON a.subject_id = sub.id
+      JOIN teachers t ON a.created_by = t.id
+      LEFT JOIN assignment_submissions asub ON asub.assignment_id = a.id AND asub.student_id = ?
+      WHERE a.class_id = ?
+      ORDER BY a.due_date ASC
+    `, [studentId, student.class_id]);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// -------------------------------------------------------------
+// 8. Subjects with mapped teacher (for raise-query teacher resolution)
+// -------------------------------------------------------------
+async function getSubjectsWithTeacher(req, res) {
+  const studentId = req.user.id;
+  try {
+    const [[student]] = await pool.query('SELECT class_id FROM students WHERE id = ?', [studentId]);
+    if (!student || !student.class_id) {
+      return res.json({ success: true, data: [] });
+    }
+    const [rows] = await pool.query(`
+      SELECT 
+        sub.id AS subjectId, sub.code AS subjectCode, sub.name AS subjectName,
+        t.id AS teacherId, t.name AS teacherName, t.unique_id AS teacherUniqueId
+      FROM class_subjects cs
+      JOIN subjects sub ON cs.subject_id = sub.id
+      JOIN teachers t ON cs.teacher_id = t.id
+      WHERE cs.class_id = ?
+      ORDER BY sub.name
+    `, [student.class_id]);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   getStudentDashboard,
   getStudentAttendance,
@@ -271,5 +331,7 @@ module.exports = {
   uploadAssignmentSubmission,
   getStudentQueries,
   raiseQuery,
-  getStudentNotes
+  getStudentNotes,
+  getStudentAssignments,
+  getSubjectsWithTeacher
 };

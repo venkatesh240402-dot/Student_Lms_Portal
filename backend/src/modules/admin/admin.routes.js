@@ -10,7 +10,9 @@ const {
   bulkImportStudents,
   addTeacher,
   mapTeacherToClassSubject,
-  mapStudentDeptYear
+  mapStudentDeptYear,
+  getStudents,
+  getTeachers
 } = require('./admin.controller');
 
 const router = express.Router();
@@ -33,8 +35,10 @@ router.use(authorize('admin'));
 router.get('/dashboard', getDashboardStats);
 router.get('/departments', getDepartments);
 router.post('/departments', createDepartment);
+router.get('/students', getStudents);
 router.post('/students', addStudent);
 router.post('/students/bulk', upload.single('file'), bulkImportStudents);
+router.get('/teachers', getTeachers);
 router.post('/teachers', addTeacher);
 router.put('/mappings/teachers-classes', mapTeacherToClassSubject);
 router.put('/mappings/students-dept-year', mapStudentDeptYear);
