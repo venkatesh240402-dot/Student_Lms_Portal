@@ -40,6 +40,7 @@ router.post('/students', addStudent);
 router.post('/students/bulk', upload.single('file'), bulkImportStudents);
 router.get('/teachers', getTeachers);
 router.post('/teachers', addTeacher);
+router.get('/subjects', getAllSubjects); // <-- new route
 router.put('/mappings/teachers-classes', mapTeacherToClassSubject);
 router.put('/mappings/students-dept-year', mapStudentDeptYear);
 

@@ -549,6 +549,16 @@ async function getTeachers(req, res) {
   }
 }
 
+// New endpoint: fetch all subjects (not scoped to department)
+async function getAllSubjects(req, res) {
+  try {
+    const [rows] = await pool.query('SELECT id, code, name FROM subjects ORDER BY code');
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   getDashboardStats,
   getDepartments,
@@ -559,5 +569,6 @@ module.exports = {
   mapTeacherToClassSubject,
   mapStudentDeptYear,
   getStudents,
-  getTeachers
+  getTeachers,
+  getAllSubjects
 };
