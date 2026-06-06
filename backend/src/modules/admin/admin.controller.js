@@ -158,14 +158,16 @@ async function addStudent(req, res) {
   }
 
   try {
-    const [[dept]] = await pool.query('SELECT code, academic_year FROM departments WHERE id = ?', [departmentId]);
+    const [[dept]] = await pool.query(
+      'SELECT code, academic_year, max_sections, students_per_class FROM departments WHERE id = ?',
+      [departmentId]
+    );
     if (!dept) {
       return res.status(400).json({ success: false, message: 'Department not found.' });
     }
 
     // Generate unique ID: {DEPT_CODE}{YEAR}{SEQ}
-    // E.g. CS2024001
-    const startYear = dept.academic_year.split('-')[0]; // E.g. 2024
+    const startYear = dept.academic_year.split('-')[0];
     const prefix = `${dept.code}${startYear}`;
     const [[latestStudent]] = await pool.query(
       'SELECT unique_id FROM students WHERE unique_id LIKE ? ORDER BY unique_id DESC LIMIT 1',
@@ -176,19 +178,58 @@ async function addStudent(req, res) {
     if (latestStudent) {
       const latestSeqStr = latestStudent.unique_id.slice(prefix.length);
       const latestSeq = parseInt(latestSeqStr, 10);
-      if (!isNaN(latestSeq)) {
-        nextSeq = latestSeq + 1;
-      }
+      if (!isNaN(latestSeq)) nextSeq = latestSeq + 1;
     }
     const uniqueId = `${prefix}${String(nextSeq).padStart(3, '0')}`;
 
     // DOB is the password (format DD-MM-YYYY)
     const passwordHash = await bcrypt.hash(dob.trim(), 10);
 
+    // Auto-assign class if not provided: find least-filled class for dept+year
+    let assignedClassId = classId || null;
+    if (!assignedClassId) {
+      const sections = ['A', 'B', 'C', 'D', 'E', 'F'];
+      const limit = Math.min(dept.max_sections || 3, sections.length);
+
+      // Get existing classes with student counts for this dept+year
+      const [classes] = await pool.query(`
+        SELECT c.id, c.section, COUNT(s.id) AS studentCount
+        FROM classes c
+        LEFT JOIN students s ON s.class_id = c.id
+        WHERE c.department_id = ? AND c.year = ?
+        GROUP BY c.id
+        ORDER BY c.section ASC
+      `, [departmentId, year]);
+
+      // Pick the first class that has room
+      let pickedClass = null;
+      for (const cls of classes) {
+        if (cls.studentCount < (dept.students_per_class || 60)) {
+          pickedClass = cls;
+          break;
+        }
+      }
+
+      // If no existing class has room, create the next section
+      if (!pickedClass) {
+        const usedSections = classes.map(c => c.section);
+        const nextSection = sections.slice(0, limit).find(s => !usedSections.includes(s));
+        if (nextSection) {
+          const [newCls] = await pool.query(
+            'INSERT IGNORE INTO classes (department_id, year, section) VALUES (?, ?, ?)',
+            [departmentId, year, nextSection]
+          );
+          assignedClassId = newCls.insertId || null;
+        }
+      } else {
+        assignedClassId = pickedClass.id;
+      }
+    }
+
     const [result] = await pool.query(
       `INSERT INTO students (unique_id, name, dob, department_id, year, class_id, password_hash)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [uniqueId, name, sqlDob, departmentId, year, classId || null, passwordHash]
+      [uniqueId, name, sqlDob, departmentId, year, assignedClassId, passwordHash]
     );
 
     res.status(201).json({
@@ -197,7 +238,7 @@ async function addStudent(req, res) {
         id: result.insertId,
         uniqueId,
         name,
-        classId
+        classId: assignedClassId
       }
     });
   } catch (error) {
