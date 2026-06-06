@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
+  Alert,
 } from 'react-native';
+import DocumentPicker, { types } from 'react-native-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../../api/client';
 import { useAutoDismiss } from '../../hooks/useAutoDismiss';
@@ -134,7 +136,9 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
   // Note uploads state
   const [noteClassId, setNoteClassId] = useState<number | null>(null);
   const [noteTitle, setNoteTitle] = useState('');
-  const [noteFileName, setNoteFileName] = useState('');
+  const [noteDescription, setNoteDescription] = useState('');
+  const [pickedFile, setPickedFile] = useState<{uri: string; name: string; type: string} | null>(null);
+  const [materialType, setMaterialType] = useState<'notes' | 'ppt' | 'lab_manual' | 'question_bank' | 'previous_paper'>('notes');
 
   // Dropdown dialog visibility
   const [isClassDropdownOpen, setIsClassDropdownOpen] = useState(false);
@@ -498,10 +502,33 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
     }
   };
 
+  // Pick a real file from device
+  const handlePickFile = async () => {
+    try {
+      const result = await DocumentPicker.pickSingle({
+        type: [types.pdf, types.ppt, types.pptx, types.doc, types.docx, types.plainText, types.images],
+        copyTo: 'cachesDirectory',
+      });
+      setPickedFile({
+        uri: result.fileCopyUri || result.uri,
+        name: result.name || 'file',
+        type: result.type || 'application/octet-stream',
+      });
+    } catch (e) {
+      if (!DocumentPicker.isCancel(e)) {
+        setErrorMessage('Failed to pick file.');
+      }
+    }
+  };
+
   // Submit notes upload
   const handleSaveNote = async () => {
     if (!noteClassId || !noteTitle.trim()) {
       setErrorMessage('Class selection and Note Title are required.');
+      return;
+    }
+    if (!pickedFile) {
+      setErrorMessage('Please pick a file to upload.');
       return;
     }
 
@@ -510,28 +537,19 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
     setErrorMessage('');
 
     const c = assignedClasses.find(cl => cl.classId === noteClassId);
-    if (!c) {
-      setSubmitting(false);
-      return;
-    }
-
-    const finalFileName = noteFileName.trim() || `${noteTitle.trim().toLowerCase().replace(/\s+/g, '_')}.pdf`;
+    if (!c) { setSubmitting(false); return; }
 
     try {
-      // Real notes upload requires multipart with a file.
-      // Since React Native file picking is out of scope here, we send metadata-only
-      // and signal the backend with a placeholder filename in description
       const formData = new FormData();
       formData.append('classId', String(c.classId));
       formData.append('subjectId', String(c.subjectId));
       formData.append('title', noteTitle.trim());
-      formData.append('description', finalFileName);
-      formData.append('materialType', 'pdf');
-      // Attach a dummy empty file blob to satisfy multer single('file') requirement
+      formData.append('description', noteDescription.trim());
+      formData.append('materialType', materialType);
       formData.append('file', {
-        uri: 'data:application/pdf;base64,',
-        name: finalFileName,
-        type: 'application/pdf',
+        uri: pickedFile.uri,
+        name: pickedFile.name,
+        type: pickedFile.type,
       } as any);
 
       const res = await apiClient.post('/faculty/notes', formData, {
@@ -539,17 +557,15 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
       });
 
       if (res.data?.success) {
-        setSuccessMessage('Lecture Notes uploaded successfully!');
+        setSuccessMessage('Material uploaded successfully!');
         setNoteTitle('');
-        setNoteFileName('');
-        // Refresh notes list
+        setNoteDescription('');
+        setPickedFile(null);
         const refreshedNotes = await apiClient.get('/faculty/notes');
-        if (refreshedNotes.data?.success) {
-          setNotes(refreshedNotes.data.data);
-        }
+        if (refreshedNotes.data?.success) setNotes(refreshedNotes.data.data);
       }
     } catch (e) {
-      setErrorMessage('Failed to upload notes.');
+      setErrorMessage('Failed to upload. Check file size or connection.');
     } finally {
       setSubmitting(false);
     }
@@ -851,93 +867,121 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
           <View style={styles.tabContent}>
             <Text style={styles.sectionTitle}>Notes & Lecture Materials</Text>
 
-            {/* Note upload form */}
-            <View style={styles.rosterCard}>
-              <Text style={styles.rosterTitle}>Upload New Material</Text>
+            {/* Upload Card */}
+            <View style={[styles.rosterCard, {borderColor: '#6366f133', borderWidth: 1}]}>
+              <View style={{flexDirection:'row', alignItems:'center', marginBottom:14}}>
+                <Text style={{fontSize:18}}>📤</Text>
+                <Text style={[styles.rosterTitle, {marginLeft:8, marginBottom:0}]}>Upload New Material</Text>
+              </View>
 
               {/* Class selector */}
               <TouchableOpacity
-                style={[styles.dropdownTrigger, { backgroundColor: 'transparent', borderColor: 'transparent', marginHorizontal: 0 }]}
-                onPress={() => {
-                  setDropdownTarget('notes');
-                  setIsClassDropdownOpen(true);
-                }}
+                style={{backgroundColor:'#1e1e2e', borderRadius:10, padding:12, marginBottom:12, flexDirection:'row', justifyContent:'space-between', alignItems:'center'}}
+                onPress={() => { setDropdownTarget('notes'); setIsClassDropdownOpen(true); }}
               >
-                <Text style={styles.dropdownTriggerLabel}>Target Class:</Text>
-                <Text style={styles.dropdownTriggerValue}>{getSelectedClassLabel(noteClassId)}</Text>
+                <Text style={{color:'#a1a1aa', fontSize:12}}>Target Class</Text>
+                <Text style={{color:'#e4e4f0', fontWeight:'700', fontSize:13}}>{getSelectedClassLabel(noteClassId)}</Text>
               </TouchableOpacity>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Note Title / Lecture Chapter</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={noteTitle}
-                  onChangeText={setNoteTitle}
-                  placeholder="e.g. Introduction to Structs and Unions"
-                  placeholderTextColor="#71717a"
-                  editable={!submitting}
-                />
+              {/* Material Type Pills */}
+              <Text style={{color:'#71717a', fontSize:12, marginBottom:8}}>Material Type</Text>
+              <View style={{flexDirection:'row', flexWrap:'wrap', gap:6, marginBottom:14}}>
+                {(['notes','ppt','lab_manual','question_bank','previous_paper'] as const).map(t => (
+                  <TouchableOpacity
+                    key={t}
+                    onPress={() => setMaterialType(t)}
+                    style={{paddingHorizontal:10, paddingVertical:5, borderRadius:20, backgroundColor: materialType===t ? '#6366f1' : '#1e1e2e', borderWidth:1, borderColor: materialType===t ? '#6366f1' : '#3f3f46'}}
+                  >
+                    <Text style={{color: materialType===t ? '#fff' : '#a1a1aa', fontSize:11, fontWeight:'600'}}>{t.replace('_',' ').toUpperCase()}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Filename (Simulated attachment)</Text>
-                <View style={styles.dateRow}>
-                  <TextInput
-                    style={styles.textInput}
-                    value={noteFileName}
-                    onChangeText={setNoteFileName}
-                    placeholder="e.g. structs_lecture3.pdf"
-                    placeholderTextColor="#71717a"
-                    editable={!submitting}
-                  />
-                  <TouchableOpacity
-                    style={styles.dateTodayBtn}
-                    onPress={() => {
-                      if (noteTitle.trim()) {
-                        setNoteFileName(`${noteTitle.trim().toLowerCase().replace(/\s+/g, '_')}.pdf`);
-                      }
-                    }}
-                  >
-                    <Text style={styles.dateTodayText}>Generate</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              {/* Title */}
+              <Text style={{color:'#71717a', fontSize:12, marginBottom:6}}>Title *</Text>
+              <TextInput
+                style={[styles.textInput, {marginBottom:12}]}
+                value={noteTitle}
+                onChangeText={setNoteTitle}
+                placeholder="e.g. Unit 3 – Structs & Unions"
+                placeholderTextColor="#52525b"
+                editable={!submitting}
+              />
+
+              {/* Description */}
+              <Text style={{color:'#71717a', fontSize:12, marginBottom:6}}>Description (optional)</Text>
+              <TextInput
+                style={[styles.textInput, {height:64, textAlignVertical:'top', marginBottom:12}]}
+                value={noteDescription}
+                onChangeText={setNoteDescription}
+                placeholder="Brief description of this material..."
+                placeholderTextColor="#52525b"
+                multiline
+                editable={!submitting}
+              />
+
+              {/* File Picker */}
+              <TouchableOpacity
+                onPress={handlePickFile}
+                disabled={submitting}
+                style={{backgroundColor:'#1e1e2e', borderRadius:10, borderWidth:1.5, borderColor: pickedFile ? '#6366f1' : '#3f3f46', borderStyle:'dashed', padding:18, alignItems:'center', marginBottom:14}}
+              >
+                <Text style={{fontSize:28, marginBottom:6}}>{pickedFile ? '📎' : '📁'}</Text>
+                <Text style={{color: pickedFile ? '#a5b4fc' : '#71717a', fontWeight:'700', fontSize:13}}>
+                  {pickedFile ? pickedFile.name : 'Tap to pick a file'}
+                </Text>
+                <Text style={{color:'#52525b', fontSize:11, marginTop:4}}>
+                  {pickedFile ? 'Tap to change' : 'PDF, PPT, DOC, images supported'}
+                </Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: '#6366f1', marginTop: 12 }]}
+                style={[styles.saveBtn, {opacity: submitting || !pickedFile ? 0.6 : 1}]}
                 onPress={handleSaveNote}
-                disabled={submitting}
+                disabled={submitting || !pickedFile}
               >
                 {submitting ? (
                   <ActivityIndicator color="#ffffff" />
                 ) : (
-                  <Text style={styles.saveBtnText}>Upload File</Text>
+                  <Text style={styles.saveBtnText}>⬆️  Upload Material</Text>
                 )}
               </TouchableOpacity>
             </View>
 
             {/* Notes List */}
-            <Text style={styles.sectionTitle}>Uploaded notes catalog</Text>
+            <Text style={[styles.sectionTitle, {marginTop:24}]}>Uploaded Materials</Text>
             {notes.length === 0 ? (
-              <Text style={styles.noDataText}>No lecture notes uploaded yet.</Text>
+              <View style={{alignItems:'center', padding:32, backgroundColor:'#1e1e2e', borderRadius:14}}>
+                <Text style={{fontSize:36, marginBottom:8}}>📚</Text>
+                <Text style={{color:'#71717a', fontSize:14}}>No materials uploaded yet.</Text>
+              </View>
             ) : (
-              notes.map((note) => (
-                <View key={note.id} style={styles.noteCard}>
-                  <View style={styles.noteHeader}>
-                    <Text style={styles.noteTitleText}>{note.title}</Text>
-                    <Text style={styles.noteDate}>
-                      {new Date(note.createdAt).toLocaleDateString()}
-                    </Text>
+              notes.map((note) => {
+                const typeColors: Record<string,string> = {
+                  notes:'#6366f1', ppt:'#f59e0b', lab_manual:'#10b981',
+                  question_bank:'#ef4444', previous_paper:'#8b5cf6'
+                };
+                const typeColor = typeColors[note.materialType] || '#6366f1';
+                return (
+                  <View key={note.id} style={[styles.noteCard, {borderLeftWidth:3, borderLeftColor:typeColor}]}>
+                    <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start'}}>
+                      <View style={{flex:1}}>
+                        <Text style={styles.noteTitleText}>{note.title}</Text>
+                        <Text style={{color:'#71717a', fontSize:11, marginTop:2}}>
+                          {note.className} · {note.subjectName}
+                        </Text>
+                      </View>
+                      <View style={{backgroundColor: typeColor + '22', paddingHorizontal:8, paddingVertical:3, borderRadius:10}}>
+                        <Text style={{color: typeColor, fontSize:10, fontWeight:'700'}}>{(note.materialType||'notes').replace('_',' ').toUpperCase()}</Text>
+                      </View>
+                    </View>
+                    <View style={{flexDirection:'row', alignItems:'center', marginTop:10, gap:10}}>
+                      <Text style={{color:'#52525b', fontSize:11}}>📄 {note.fileName}</Text>
+                      <Text style={{color:'#52525b', fontSize:11}}>{new Date(note.createdAt).toLocaleDateString()}</Text>
+                    </View>
                   </View>
-                  <Text style={styles.noteDetails}>
-                    Class: {note.className} | Subject: {note.subjectName}
-                  </Text>
-                  <View style={styles.fileRow}>
-                    <Text style={styles.fileNameText}>📄 {note.fileName}</Text>
-                    <Text style={styles.downloadLink}>Download</Text>
-                  </View>
-                </View>
-              ))
+                );
+              })
             )}
           </View>
         )}
