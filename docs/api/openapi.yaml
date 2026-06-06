@@ -1,0 +1,1545 @@
+openapi: 3.0.3
+info:
+  title: College LMS API
+  description: Backend REST API Contract for the Student Learning Management System (LMS)
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000/api
+    description: Local development server
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      responses:
+        '200':
+          description: Service is healthy and connected to DB
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  database:
+                    type: string
+                    example: connected
+                  timestamp:
+                    type: string
+                    example: "2026-06-06T11:00:00.000Z"
+
+  /auth/login:
+    post:
+      summary: Authenticate user (Admin, Faculty, Student)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - uniqueId
+                - password
+              properties:
+                uniqueId:
+                  type: string
+                  description: Admin username, teacher ID, or student roll number
+                  example: admin
+                password:
+                  type: string
+                  description: Custom password (Admin) or DOB in DD-MM-YYYY format (Faculty/Student)
+                  example: Admin@123
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            example: 1
+                          uniqueId:
+                            type: string
+                            example: admin
+                          name:
+                            type: string
+                            example: "System Administrator"
+                          role:
+                            type: string
+                            example: admin
+
+  /admin/dashboard:
+    get:
+      summary: Get system statistics for Admin dashboard
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Statistics details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      totalStudents:
+                        type: integer
+                        example: 120
+                      totalTeachers:
+                        type: integer
+                        example: 15
+                      totalDepartments:
+                        type: integer
+                        example: 4
+                      studentsByDepartment:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            departmentCode:
+                              type: string
+                              example: CS
+                            departmentName:
+                              type: string
+                              example: "Computer Science"
+                            count:
+                              type: integer
+                              example: 80
+                      sectionFillRates:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            className:
+                              type: string
+                              example: CS-1A
+                            filled:
+                              type: integer
+                              example: 45
+                            capacity:
+                              type: integer
+                              example: 60
+
+  /admin/departments:
+    get:
+      summary: List all departments with their subjects
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: A list of departments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        code:
+                          type: string
+                          example: CS
+                        name:
+                          type: string
+                          example: "Computer Science"
+                        academic_year:
+                          type: string
+                          example: "2024-2025"
+                        max_sections:
+                          type: integer
+                          example: 3
+                        students_per_class:
+                          type: integer
+                          example: 60
+                        subjects:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                                example: 10
+                              code:
+                                type: string
+                                example: CS101
+                              name:
+                                type: string
+                                example: "Introduction to Programming"
+    post:
+      summary: Create a new department and initialize classes
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - name
+                - academicYear
+              properties:
+                code:
+                  type: string
+                  example: CS
+                name:
+                  type: string
+                  example: "Computer Science"
+                academicYear:
+                  type: string
+                  example: "2024-2025"
+                maxSections:
+                  type: integer
+                  example: 3
+                studentsPerClass:
+                  type: integer
+                  example: 60
+                subjectIds:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1, 2]
+      responses:
+        '201':
+          description: Department created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 2
+                      code:
+                        type: string
+                        example: CS
+                      name:
+                        type: string
+                        example: "Computer Science"
+                      academicYear:
+                        type: string
+                        example: "2024-2025"
+
+  /admin/students:
+    post:
+      summary: Add an individual student
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - dob
+                - departmentId
+                - year
+              properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                dob:
+                  type: string
+                  description: DOB as DD-MM-YYYY (will be used as initial hashed password)
+                  example: "15-06-2004"
+                departmentId:
+                  type: integer
+                  example: 1
+                year:
+                  type: integer
+                  example: 1
+                classId:
+                  type: integer
+                  nullable: true
+                  example: 5
+      responses:
+        '201':
+          description: Student added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 101
+                      uniqueId:
+                        type: string
+                        example: CS2024001
+                      name:
+                        type: string
+                        example: "John Doe"
+                      classId:
+                        type: integer
+                        example: 5
+
+  /admin/students/bulk:
+    post:
+      summary: Bulk import students via CSV upload
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV file containing name, dob, departmentcode, year columns
+      responses:
+        '200':
+          description: CSV parsing report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      imported:
+                        type: integer
+                        example: 45
+                      failed:
+                        type: integer
+                        example: 2
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            row:
+                              type: integer
+                              example: 12
+                            message:
+                              type: string
+                              example: "Invalid DOB format for student \"Alice\". Must be DD-MM-YYYY."
+
+  /admin/teachers:
+    post:
+      summary: Add an individual teacher
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - dob
+                - departmentId
+              properties:
+                name:
+                  type: string
+                  example: "Dr. Sarah Smith"
+                dob:
+                  type: string
+                  description: DOB as DD-MM-YYYY (used as initial hashed password)
+                  example: "23-08-1980"
+                departmentId:
+                  type: integer
+                  example: 1
+      responses:
+        '201':
+          description: Teacher added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 51
+                      uniqueId:
+                        type: string
+                        example: TCS001
+                      name:
+                        type: string
+                        example: "Dr. Sarah Smith"
+
+  /admin/mappings/teachers-classes:
+    put:
+      summary: Map a teacher to a specific class and subject
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - classId
+                - subjectId
+                - teacherId
+              properties:
+                classId:
+                  type: integer
+                  example: 5
+                subjectId:
+                  type: integer
+                  example: 12
+                teacherId:
+                  type: integer
+                  example: 2
+      responses:
+        '200':
+          description: Mapping succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Teacher successfully mapped to class subject."
+
+  /admin/mappings/students-dept-year:
+    put:
+      summary: Assign or promote a student to a department/year/class and log academic history
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - studentId
+                - departmentId
+                - year
+                - semesterId
+              properties:
+                studentId:
+                  type: integer
+                  example: 101
+                departmentId:
+                  type: integer
+                  example: 1
+                year:
+                  type: integer
+                  example: 2
+                classId:
+                  type: integer
+                  nullable: true
+                  example: 8
+                semesterId:
+                  type: integer
+                  example: 3
+      responses:
+        '200':
+          description: Student promotion succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Student department/year assignment updated."
+
+  /faculty/dashboard:
+    get:
+      summary: Get teacher stats for faculty dashboard
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Dashboard details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      todayAttendance:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            classId:
+                              type: integer
+                              example: 5
+                            className:
+                              type: string
+                              example: "CS-1A"
+                            attendancePercent:
+                              type: number
+                              example: 92.5
+                      pendingQueriesCount:
+                        type: integer
+                        example: 3
+                      assignmentFunnel:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            assignmentTitle:
+                              type: string
+                              example: "DBMS Lab 1"
+                            submittedCount:
+                              type: integer
+                              example: 48
+                            pendingCount:
+                              type: integer
+                              example: 12
+
+  /faculty/attendance:
+    get:
+      summary: Get attendance checklist of students for a class and subject on a date
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: classId
+          in: query
+          required: true
+          schema:
+            type: integer
+          example: 5
+        - name: subjectId
+          in: query
+          required: true
+          schema:
+            type: integer
+          example: 12
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2026-06-15"
+      responses:
+        '200':
+          description: List of students with attendance status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        studentId:
+                          type: integer
+                          example: 101
+                        uniqueId:
+                          type: string
+                          example: "CS2024001"
+                        name:
+                          type: string
+                          example: "John Doe"
+                        status:
+                          type: string
+                          enum: [present, absent, late, null]
+                          example: present
+                        hourNo:
+                          type: integer
+                          example: 2
+    post:
+      summary: Mark or update period-wise attendance for a list of students
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - classId
+                - subjectId
+                - date
+                - hourNo
+                - records
+              properties:
+                classId:
+                  type: integer
+                  example: 5
+                subjectId:
+                  type: integer
+                  example: 12
+                date:
+                  type: string
+                  format: date
+                  example: "2026-06-15"
+                hourNo:
+                  type: integer
+                  example: 2
+                records:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - studentId
+                      - status
+                    properties:
+                      studentId:
+                        type: integer
+                        example: 101
+                      status:
+                        type: string
+                        enum: [present, absent, late]
+                        example: present
+      responses:
+        '200':
+          description: Attendance marked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Attendance recorded successfully."
+
+  /faculty/notes:
+    get:
+      summary: List notes uploaded by the current faculty member
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of notes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        class_id:
+                          type: integer
+                          example: 5
+                        subject_id:
+                          type: integer
+                          example: 12
+                        file_url:
+                          type: string
+                          example: "/uploads/1717668000000-notes.pdf"
+                        uploaded_by:
+                          type: integer
+                          example: 2
+                        title:
+                          type: string
+                          example: "Unit 1 DBMS Notes"
+                        description:
+                          type: string
+                          example: "Introduction to SQL and Keys"
+                        material_type:
+                          type: string
+                          example: "pdf"
+                        created_at:
+                          type: string
+                          example: "2026-06-06T11:00:00.000Z"
+                        year:
+                          type: integer
+                          example: 1
+                        section:
+                          type: string
+                          example: "A"
+                        subjectName:
+                          type: string
+                          example: "Database Management Systems"
+    post:
+      summary: Upload new notes or study material
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - classId
+                - subjectId
+                - title
+                - materialType
+              properties:
+                file:
+                  type: string
+                  format: binary
+                classId:
+                  type: integer
+                  example: 5
+                subjectId:
+                  type: integer
+                  example: 12
+                title:
+                  type: string
+                  example: "DBMS Lab Sheet"
+                description:
+                  type: string
+                  example: "Reference queries for Lab 1"
+                materialType:
+                  type: string
+                  example: "pdf"
+      responses:
+        '201':
+          description: Notes uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 2
+                      title:
+                        type: string
+                        example: "DBMS Lab Sheet"
+                      fileUrl:
+                        type: string
+                        example: "/uploads/1717668050000-dbms_lab.pdf"
+                      materialType:
+                        type: string
+                        example: "pdf"
+
+  /faculty/queries:
+    get:
+      summary: List queries addressed to the current teacher
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of student queries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        queryId:
+                          type: integer
+                          example: 5
+                        status:
+                          type: string
+                          enum: [open, resolved]
+                          example: open
+                        createdAt:
+                          type: string
+                          example: "2026-06-06T11:00:00.000Z"
+                        studentName:
+                          type: string
+                          example: "John Doe"
+                        subjectName:
+                          type: string
+                          example: "Database Management Systems"
+
+  /faculty/queries/{id}:
+    get:
+      summary: Get query details and message history thread
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5
+      responses:
+        '200':
+          description: Query thread details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      queryId:
+                        type: integer
+                        example: 5
+                      status:
+                        type: string
+                        example: open
+                      studentName:
+                        type: string
+                        example: "John Doe"
+                      teacherName:
+                        type: string
+                        example: "Dr. Sarah Smith"
+                      subjectName:
+                        type: string
+                        example: "Database Management Systems"
+                      messages:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              example: 10
+                            senderType:
+                              type: string
+                              enum: [student, teacher]
+                              example: student
+                            senderId:
+                              type: integer
+                              example: 101
+                            message:
+                              type: string
+                              example: "I have a doubt regarding 3NF normalization."
+                            createdAt:
+                              type: string
+                              example: "2026-06-06T11:00:00.000Z"
+
+  /faculty/queries/{id}/reply:
+    put:
+      summary: Reply to a student query and optionally resolve it
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  example: "Please refer to slide 14 of Unit 3."
+                status:
+                  type: string
+                  enum: [open, resolved]
+                  example: resolved
+      responses:
+        '200':
+          description: Reply added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Reply sent successfully."
+
+  /faculty/assignments/submissions:
+    get:
+      summary: List submissions for a specific assignment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: assignmentId
+          in: query
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Submissions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 10
+                        assignment_id:
+                          type: integer
+                          example: 1
+                        student_id:
+                          type: integer
+                          example: 101
+                        file_url:
+                          type: string
+                          example: "/uploads/1717668100000-john_sub.pdf"
+                        submitted_at:
+                          type: string
+                          example: "2026-06-06T12:00:00.000Z"
+                        marks_obtained:
+                          type: number
+                          nullable: true
+                          example: 85
+                        feedback:
+                          type: string
+                          nullable: true
+                          example: "Good analysis, but explain the ER diagram clearly."
+                        status:
+                          type: string
+                          enum: [pending, verified, rejected]
+                          example: pending
+                        verified_by:
+                          type: integer
+                          nullable: true
+                          example: null
+                        verified_at:
+                          type: string
+                          nullable: true
+                          example: null
+                        studentName:
+                          type: string
+                          example: "John Doe"
+                        studentUniqueId:
+                          type: string
+                          example: "CS2024001"
+
+  /faculty/assignments/submissions/{id}/grade:
+    put:
+      summary: Evaluate and grade a student's assignment submission
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - marksObtained
+                - status
+              properties:
+                marksObtained:
+                  type: number
+                  example: 85
+                feedback:
+                  type: string
+                  example: "Great work!"
+                status:
+                  type: string
+                  enum: [verified, rejected]
+                  example: verified
+      responses:
+        '200':
+          description: Submission graded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Submission evaluated successfully."
+
+  /faculty/marks/internal:
+    post:
+      summary: Enter internal assessment marks (Tests 1, 2, or 3)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - studentId
+                - subjectId
+                - testNumber
+                - marks
+              properties:
+                studentId:
+                  type: integer
+                  example: 101
+                subjectId:
+                  type: integer
+                  example: 12
+                testNumber:
+                  type: integer
+                  enum: [1, 2, 3]
+                  example: 1
+                marks:
+                  type: number
+                  example: 45
+      responses:
+        '200':
+          description: Marks updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Internal marks recorded."
+
+  /faculty/marks/practical:
+    post:
+      summary: Enter practical examination marks
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - studentId
+                - subjectId
+                - marks
+              properties:
+                studentId:
+                  type: integer
+                  example: 101
+                subjectId:
+                  type: integer
+                  example: 12
+                marks:
+                  type: number
+                  example: 260
+      responses:
+        '200':
+          description: Marks updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Practical marks recorded."
+
+  /faculty/marks/semester:
+    post:
+      summary: Enter semester main examination marks
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - studentId
+                - subjectId
+                - marks
+              properties:
+                studentId:
+                  type: integer
+                  example: 101
+                subjectId:
+                  type: integer
+                  example: 12
+                marks:
+                  type: number
+                  example: 78
+      responses:
+        '200':
+          description: Marks updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Semester marks recorded."
+
+  /faculty/marks/publish:
+    post:
+      summary: Publish semester final grades and aggregate weights
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - semesterId
+              properties:
+                semesterId:
+                  type: integer
+                  example: 4
+      responses:
+        '200':
+          description: Stored procedure run completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Published/updated 45 final result rows for semester 4"
+
+  /student/dashboard:
+    get:
+      summary: Retrieve student dashboard statistics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Student dashboard details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      attendancePercent:
+                        type: number
+                        example: 88.5
+                      assignmentPending:
+                        type: integer
+                        example: 2
+                      cgpa:
+                        type: number
+                        nullable: true
+                        example: 8.45
+                      subjectMarks:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            subjectName:
+                              type: string
+                              example: "Database Management Systems"
+                            finalPercent:
+                              type: number
+                              example: 82.4
+                            grade:
+                              type: string
+                              example: "A"
+
+  /student/attendance:
+    get:
+      summary: View student's own detailed attendance records
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Detailed list of logged periods
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                          example: "2026-06-15"
+                        hourNo:
+                          type: integer
+                          example: 2
+                        status:
+                          type: string
+                          example: present
+                        subjectName:
+                          type: string
+                          example: "Database Management Systems"
+
+  /student/marks:
+    get:
+      summary: View student's own scores (Internals, Practicals, Final Results)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Score breakdowns
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      internals:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            testNumber:
+                              type: integer
+                              example: 1
+                            marks:
+                              type: number
+                              example: 45
+                            subjectName:
+                              type: string
+                              example: "Database Management Systems"
+                      practicals:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            marks:
+                              type: number
+                              example: 260
+                            subjectName:
+                              type: string
+                              example: "Database Management Systems"
+                      semesterMarks:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            marks:
+                              type: number
+                              example: 78
+                            subjectName:
+                              type: string
+                              example: "Database Management Systems"
+                      finalResults:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            finalPercent:
+                              type: number
+                              example: 82.4
+                            grade:
+                              type: string
+                              example: "A"
+                            subjectName:
+                              type: string
+                              example: "Database Management Systems"
+
+  /student/assignments:
+    post:
+      summary: Submit assignment file
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - assignmentId
+              properties:
+                file:
+                  type: string
+                  format: binary
+                assignmentId:
+                  type: integer
+                  example: 1
+      responses:
+        '201':
+          description: Submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 12
+                      fileUrl:
+                        type: string
+                        example: "/uploads/1717668120000-john_sub.pdf"
+                      status:
+                        type: string
+                        example: pending
+
+  /student/queries:
+    get:
+      summary: View own raised queries
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Student's query history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        queryId:
+                          type: integer
+                          example: 5
+                        status:
+                          type: string
+                          example: open
+                        createdAt:
+                          type: string
+                          example: "2026-06-06T11:00:00.000Z"
+                        teacherName:
+                          type: string
+                          example: "Dr. Sarah Smith"
+                        subjectName:
+                          type: string
+                          example: "Database Management Systems"
+    post:
+      summary: Raise a new query to a teacher
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - teacherId
+                - message
+              properties:
+                teacherId:
+                  type: integer
+                  example: 2
+                subjectId:
+                  type: integer
+                  example: 12
+                message:
+                  type: string
+                  example: "I am having trouble understanding 3NF normalization."
+      responses:
+        '201':
+          description: Query created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      queryId:
+                        type: integer
+                        example: 6
+                      status:
+                        type: string
+                        example: open
+
+  /student/notes:
+    get:
+      summary: View class notes uploaded by faculty for student's enrolled subjects
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Notes checklist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        class_id:
+                          type: integer
+                          example: 5
+                        subject_id:
+                          type: integer
+                          example: 12
+                        file_url:
+                          type: string
+                          example: "/uploads/1717668000000-notes.pdf"
+                        uploaded_by:
+                          type: integer
+                          example: 2
+                        title:
+                          type: string
+                          example: "Unit 1 DBMS Notes"
+                        description:
+                          type: string
+                          example: "Introduction to SQL and Keys"
+                        material_type:
+                          type: string
+                          example: "pdf"
+                        created_at:
+                          type: string
+                          example: "2026-06-06T11:00:00.000Z"
+                        subjectName:
+                          type: string
+                          example: "Database Management Systems"
+                        uploadedByTeacher:
+                          type: string
+                          example: "Dr. Sarah Smith"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
