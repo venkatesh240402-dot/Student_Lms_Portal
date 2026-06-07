@@ -30,7 +30,12 @@ const storage = multer.diskStorage({
     cb(null, path.join(__dirname, '..', '..', '..', 'uploads'));
   },
   filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
+    // React Native FormData URL-encodes filenames with spaces.
+    // express.static automatically decodes URLs, meaning files with literal '%20' in their name will 404.
+    // We must decode the original name and sanitize spaces to prevent 404s.
+    let safeName = decodeURIComponent(file.originalname);
+    safeName = safeName.replace(/[^a-zA-Z0-9.\-_]/g, '_'); // Replace spaces and unsafe chars with underscore
+    cb(null, `${Date.now()}-${safeName}`);
   }
 });
 const upload = multer({ storage });

@@ -22,7 +22,9 @@ const storage = multer.diskStorage({
     cb(null, path.join(__dirname, '..', '..', '..', 'uploads'));
   },
   filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
+    let safeName = decodeURIComponent(file.originalname);
+    safeName = safeName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    cb(null, `${Date.now()}-${safeName}`);
   }
 });
 const upload = multer({ storage });
