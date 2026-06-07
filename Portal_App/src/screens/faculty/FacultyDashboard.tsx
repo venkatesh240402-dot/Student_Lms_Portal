@@ -11,7 +11,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
-import DocumentPicker, { types } from '@react-native-documents/picker';
+import DocumentPicker, { types, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../../api/client';
 import { useAutoDismiss } from '../../hooks/useAutoDismiss';
@@ -516,7 +516,9 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
         type: result.type || 'application/octet-stream',
       });
     } catch (e: any) {
-      if (!DocumentPicker.isCancel(e)) {
+      if (isErrorWithCode(e) && e.code === errorCodes.OPERATION_CANCELED) {
+        // user cancelled, do nothing
+      } else {
         setErrorMessage('Failed to pick file.');
       }
     }
