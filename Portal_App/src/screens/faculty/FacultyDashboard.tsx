@@ -11,7 +11,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
-import DocumentPicker, { types } from 'react-native-document-picker';
+import DocumentPicker, { types } from '@react-native-documents/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../../api/client';
 import { useAutoDismiss } from '../../hooks/useAutoDismiss';
@@ -505,7 +505,8 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
   // Pick a real file from device
   const handlePickFile = async () => {
     try {
-      const result = await DocumentPicker.pickSingle({
+      const [result] = await DocumentPicker.pick({
+        allowMultiSelection: false,
         type: [types.pdf, types.ppt, types.pptx, types.doc, types.docx, types.plainText, types.images],
         copyTo: 'cachesDirectory',
       });
@@ -514,7 +515,7 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
         name: result.name || 'file',
         type: result.type || 'application/octet-stream',
       });
-    } catch (e) {
+    } catch (e: any) {
       if (!DocumentPicker.isCancel(e)) {
         setErrorMessage('Failed to pick file.');
       }
