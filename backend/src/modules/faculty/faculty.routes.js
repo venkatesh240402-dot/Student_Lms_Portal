@@ -19,7 +19,8 @@ const {
   publishSemesterResults,
   getAssignedClasses,
   getAssignments,
-  createAssignment
+  createAssignment,
+  getMarksForClass
 } = require('./faculty.controller');
 
 const router = express.Router();
@@ -57,6 +58,7 @@ router.get('/assignments', getAssignments);
 router.post('/assignments', createAssignment);
 router.get('/assignments/submissions', getSubmissions);
 router.put('/assignments/submissions/:id/grade', gradeSubmission);
+router.get('/marks', getMarksForClass);
 router.post('/marks/internal', enterInternalMarks);
 router.post('/marks/practical', enterPracticalMarks);
 router.post('/marks/semester', enterSemesterMarks);

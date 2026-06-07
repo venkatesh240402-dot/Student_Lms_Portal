@@ -322,7 +322,6 @@ async function enterInternalMarks(req, res) {
     await pool.query(`
       INSERT INTO internal_marks (student_id, subject_id, test_number, marks)
       VALUES (?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE marks = VALUES(marks)
     `, [studentId, subjectId, testNumber, marks]);
 
     res.json({ success: true, message: 'Internal marks recorded.' });
@@ -341,7 +340,6 @@ async function enterPracticalMarks(req, res) {
     await pool.query(`
       INSERT INTO practical_marks (student_id, subject_id, marks)
       VALUES (?, ?, ?)
-      ON DUPLICATE KEY UPDATE marks = VALUES(marks)
     `, [studentId, subjectId, marks]);
 
     res.json({ success: true, message: 'Practical marks recorded.' });
@@ -360,7 +358,6 @@ async function enterSemesterMarks(req, res) {
     await pool.query(`
       INSERT INTO semester_marks (student_id, subject_id, marks)
       VALUES (?, ?, ?)
-      ON DUPLICATE KEY UPDATE marks = VALUES(marks)
     `, [studentId, subjectId, marks]);
 
     res.json({ success: true, message: 'Semester marks recorded.' });
@@ -466,6 +463,31 @@ async function createAssignment(req, res) {
   }
 }
 
+async function getMarksForClass(req, res) {
+  const { classId, subjectId } = req.query;
+  if (!classId || !subjectId) {
+    return res.status(400).json({ success: false, message: 'classId and subjectId required.' });
+  }
+  try {
+    const [students] = await pool.query(`
+      SELECT s.id as studentId, s.unique_id as uniqueId, u.name,
+             (SELECT marks FROM internal_marks WHERE student_id = s.id AND subject_id = ? AND test_number = 1) AS test1,
+             (SELECT marks FROM internal_marks WHERE student_id = s.id AND subject_id = ? AND test_number = 2) AS test2,
+             (SELECT marks FROM internal_marks WHERE student_id = s.id AND subject_id = ? AND test_number = 3) AS test3,
+             (SELECT marks FROM practical_marks WHERE student_id = s.id AND subject_id = ?) AS practical,
+             (SELECT marks FROM semester_marks WHERE student_id = s.id AND subject_id = ?) AS semester
+      FROM students s
+      JOIN users u ON s.user_id = u.id
+      WHERE s.class_id = ?
+      ORDER BY s.unique_id ASC
+    `, [subjectId, subjectId, subjectId, subjectId, subjectId, classId]);
+    
+    res.json({ success: true, data: students });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   getFacultyDashboard,
   getAttendance,
@@ -480,6 +502,7 @@ module.exports = {
   enterInternalMarks,
   enterPracticalMarks,
   enterSemesterMarks,
+  getMarksForClass,
   publishSemesterResults,
   getAssignedClasses,
   getAssignments,

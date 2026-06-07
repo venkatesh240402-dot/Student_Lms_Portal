@@ -244,26 +244,29 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
   };
 
   const fetchMarksForClass = async (classId: number) => {
-    // For marks, we fetch the student roster for the selected class
     setMarksLoading(true);
     try {
       const cls = assignedClasses.find(c => c.classId === classId);
       const subjectId = cls?.subjectId ?? 1;
-      const today = new Date().toISOString().split('T')[0];
-      const res = await apiClient.get(`/faculty/attendance?classId=${classId}&subjectId=${subjectId}&date=${today}`);
+      const res = await apiClient.get(`/faculty/marks?classId=${classId}&subjectId=${subjectId}`);
       if (res.data?.success) {
         const rows: StudentMarkRow[] = (res.data.data || []).map((s: any) => ({
           studentId: s.studentId,
           uniqueId: s.uniqueId,
           name: s.name,
-          test1: 0, test2: 0, test3: 0,
-          practical: 0, semester: 0,
-          finalPercent: 0, grade: 'N/A', cgpa: 0
+          test1: s.test1 || 0, test2: s.test2 || 0, test3: s.test3 || 0,
+          practical: s.practical || 0, semester: s.semester || 0,
+          finalPercent: 0, grade: 'N/A', cgpa: 0,
+          test1Locked: s.test1 !== null && s.test1 !== undefined,
+          test2Locked: s.test2 !== null && s.test2 !== undefined,
+          test3Locked: s.test3 !== null && s.test3 !== undefined,
+          practicalLocked: s.practical !== null && s.practical !== undefined,
+          semesterLocked: s.semester !== null && s.semester !== undefined,
         }));
         setMarksRows(rows);
       }
     } catch (e) {
-      setErrorMessage('Failed to load students for marks entry.');
+      setErrorMessage('Failed to load marks.');
     } finally {
       setMarksLoading(false);
     }
@@ -292,22 +295,23 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
       const subjectId = cls?.subjectId ?? 1;
 
       if (marksCategory === 'internal') {
-        // Call /marks/internal per student × 3 tests
         for (const row of marksRows) {
-          await apiClient.post('/faculty/marks/internal', { studentId: row.studentId, subjectId, testNumber: 1, marks: row.test1 });
-          await apiClient.post('/faculty/marks/internal', { studentId: row.studentId, subjectId, testNumber: 2, marks: row.test2 });
-          await apiClient.post('/faculty/marks/internal', { studentId: row.studentId, subjectId, testNumber: 3, marks: row.test3 });
+          if (!row.test1Locked && row.test1 !== undefined) await apiClient.post('/faculty/marks/internal', { studentId: row.studentId, subjectId, testNumber: 1, marks: row.test1 });
+          if (!row.test2Locked && row.test2 !== undefined) await apiClient.post('/faculty/marks/internal', { studentId: row.studentId, subjectId, testNumber: 2, marks: row.test2 });
+          if (!row.test3Locked && row.test3 !== undefined) await apiClient.post('/faculty/marks/internal', { studentId: row.studentId, subjectId, testNumber: 3, marks: row.test3 });
         }
       } else if (marksCategory === 'practical') {
         for (const row of marksRows) {
-          await apiClient.post('/faculty/marks/practical', { studentId: row.studentId, subjectId, marks: row.practical });
+          if (!row.practicalLocked && row.practical !== undefined) await apiClient.post('/faculty/marks/practical', { studentId: row.studentId, subjectId, marks: row.practical });
         }
       } else {
         for (const row of marksRows) {
-          await apiClient.post('/faculty/marks/semester', { studentId: row.studentId, subjectId, marks: row.semester });
+          if (!row.semesterLocked && row.semester !== undefined) await apiClient.post('/faculty/marks/semester', { studentId: row.studentId, subjectId, marks: row.semester });
         }
       }
       setSuccessMessage(`${marksCategory.charAt(0).toUpperCase() + marksCategory.slice(1)} marks saved!`);
+      // Refresh to get updated locks
+      fetchMarksForClass(marksClassId);
     } catch (e) {
       setErrorMessage('Failed to save marks. Please try again.');
     } finally {
@@ -971,7 +975,7 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
                     <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start'}}>
                       <View style={{flex:1}}>
                         <Text style={styles.noteTitleText}>{note.title}</Text>
-                        <Text style={{color:'#71717a', fontSize:11, marginTop:2}}>
+                        <Text style={{color:'#71717a', fontSize:11, marginTop:2}>
                           {note.className} · {note.subjectName}
                         </Text>
                       </View>
@@ -1257,42 +1261,47 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
                     {marksCategory === 'internal' ? (
                       <>
                         <TextInput
-                          style={styles.marksInput}
+                          style={[styles.marksInput, row.test1Locked && styles.marksInputLocked]}
                           keyboardType="numeric"
                           value={String(row.test1)}
                           onChangeText={v => updateMarkCell(row.studentId, 'test1', v)}
                           maxLength={3}
+                          editable={!row.test1Locked}
                         />
                         <TextInput
-                          style={styles.marksInput}
+                          style={[styles.marksInput, row.test2Locked && styles.marksInputLocked]}
                           keyboardType="numeric"
                           value={String(row.test2)}
                           onChangeText={v => updateMarkCell(row.studentId, 'test2', v)}
                           maxLength={3}
+                          editable={!row.test2Locked}
                         />
                         <TextInput
-                          style={styles.marksInput}
+                          style={[styles.marksInput, row.test3Locked && styles.marksInputLocked]}
                           keyboardType="numeric"
                           value={String(row.test3)}
                           onChangeText={v => updateMarkCell(row.studentId, 'test3', v)}
                           maxLength={3}
+                          editable={!row.test3Locked}
                         />
                       </>
                     ) : marksCategory === 'practical' ? (
                       <TextInput
-                        style={[styles.marksInput, { flex: 1.5 }]}
+                        style={[styles.marksInput, { flex: 1.5 }, row.practicalLocked && styles.marksInputLocked]}
                         keyboardType="numeric"
                         value={String(row.practical)}
                         onChangeText={v => updateMarkCell(row.studentId, 'practical', v)}
                         maxLength={3}
+                        editable={!row.practicalLocked}
                       />
                     ) : (
                       <TextInput
-                        style={[styles.marksInput, { flex: 1.5 }]}
+                        style={[styles.marksInput, { flex: 1.5 }, row.semesterLocked && styles.marksInputLocked]}
                         keyboardType="numeric"
                         value={String(row.semester)}
                         onChangeText={v => updateMarkCell(row.studentId, 'semester', v)}
                         maxLength={3}
+                        editable={!row.semesterLocked}
                       />
                     )}
 
