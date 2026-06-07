@@ -180,8 +180,39 @@ export default function StudentDashboard({ user, onLogout }: { user: any; onLogo
       // Fetch detailed marks
       const marksRes = await apiClient.get('/student/marks');
       if (marksRes.data?.success) {
-        // Real API returns { internals, practicals, semesterMarks, finalResults }
-        setDetailedMarks(marksRes.data.data?.finalResults || []);
+        const data = marksRes.data.data;
+        if (data) {
+          const subjectsMap: Record<string, SubjectMark> = {};
+          
+          const initSubj = (name: string) => {
+            if (!subjectsMap[name]) {
+              subjectsMap[name] = { subjectName: name, internalWeighted: 0, practicalWeighted: 0, semWeighted: 0, finalPercent: 0, grade: '-' };
+            }
+          };
+
+          data.internals?.forEach((i: any) => {
+            initSubj(i.subjectName);
+            subjectsMap[i.subjectName].internalWeighted += Number(i.marks) || 0;
+          });
+
+          data.practicals?.forEach((p: any) => {
+            initSubj(p.subjectName);
+            subjectsMap[p.subjectName].practicalWeighted += Number(p.marks) || 0;
+          });
+
+          data.semesterMarks?.forEach((s: any) => {
+            initSubj(s.subjectName);
+            subjectsMap[s.subjectName].semWeighted += Number(s.marks) || 0;
+          });
+
+          data.finalResults?.forEach((f: any) => {
+            initSubj(f.subjectName);
+            subjectsMap[f.subjectName].finalPercent = Number(f.finalPercent) || 0;
+            subjectsMap[f.subjectName].grade = f.grade || '-';
+          });
+
+          setDetailedMarks(Object.values(subjectsMap));
+        }
         setMarksCGPA(dashRes.data?.data?.cgpa || 0);
       }
       // Fetch timetable (mock only — backend has no timetable endpoint)
