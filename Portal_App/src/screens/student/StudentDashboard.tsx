@@ -137,14 +137,9 @@ export default function StudentDashboard({ user, onLogout }: { user: any; onLogo
     const downloadUrl = `${baseUrl}${fileUrl}`;
     
     try {
-      const supported = await Linking.canOpenURL(downloadUrl);
-      if (supported) {
-        await Linking.openURL(downloadUrl);
-      } else {
-        Alert.alert('Error', 'Cannot open this file type natively.');
-      }
+      await Linking.openURL(downloadUrl);
     } catch (err) {
-      Alert.alert('Error', 'Failed to open file.');
+      Alert.alert('Error', 'Failed to open file. Your browser or a viewer app might not be installed.');
     }
   };
 
@@ -476,12 +471,12 @@ export default function StudentDashboard({ user, onLogout }: { user: any; onLogo
                     <View style={styles.noteHeader}>
                       <Text style={styles.noteTitleText}>{note.title}</Text>
                       <Text style={styles.noteDate}>
-                        {new Date(note.createdAt).toLocaleDateString()}
+                        {note.createdAt ? new Date(note.createdAt).toLocaleDateString() : ''}
                       </Text>
                     </View>
                     <Text style={styles.noteDetails}>By {note.uploadedByTeacher}</Text>
                     <View style={styles.fileRow}>
-                      <Text style={styles.fileNameText}>📄 {note.file_url ? note.file_url.split('/').pop() : 'Unknown file'}</Text>
+                      <Text style={styles.fileNameText}>📄 {note.file_url ? decodeURIComponent(note.file_url.split('/').pop() || '') : 'Unknown file'}</Text>
                       <TouchableOpacity onPress={() => handleDownloadNote(note.file_url)}>
                         <Text style={styles.downloadLink}>Download</Text>
                       </TouchableOpacity>
@@ -564,14 +559,14 @@ export default function StudentDashboard({ user, onLogout }: { user: any; onLogo
                         <View style={styles.noteHeader}>
                           <Text style={styles.noteTitleText}>{note.title}</Text>
                           <Text style={styles.noteDate}>
-                            {new Date(note.createdAt).toLocaleDateString()}
+                            {note.createdAt ? new Date(note.createdAt).toLocaleDateString() : ''}
                           </Text>
                         </View>
                         <Text style={styles.noteDetails}>
                           Subject: {note.subjectName} | By: {note.uploadedByTeacher}
                         </Text>
                         <View style={styles.fileRow}>
-                          <Text style={styles.fileNameText}>📄 {note.file_url ? note.file_url.split('/').pop() : 'Unknown file'}</Text>
+                          <Text style={styles.fileNameText}>📄 {note.file_url ? decodeURIComponent(note.file_url.split('/').pop() || '') : 'Unknown file'}</Text>
                           <TouchableOpacity onPress={() => handleDownloadNote(note.file_url)}>
                             <Text style={styles.downloadLink}>Download</Text>
                           </TouchableOpacity>
