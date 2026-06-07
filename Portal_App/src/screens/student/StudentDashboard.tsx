@@ -10,9 +10,11 @@ import {
   Modal,
   FlatList,
   Alert,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../../api/client';
+import { API_URL } from '../../api/envConfig';
 import { useAutoDismiss } from '../../hooks/useAutoDismiss';
 
 interface SubjectMark {
@@ -46,9 +48,10 @@ interface NoteRecord {
   subjectId: number;
   subjectName: string;
   title: string;
-  fileName: string;
-  uploadedBy: string;
+  file_url: string;
+  uploadedByTeacher: string;
   createdAt: string;
+  material_type?: string;
 }
 
 interface QueryRecord {
@@ -123,6 +126,26 @@ export default function StudentDashboard({ user, onLogout }: { user: any; onLogo
     await AsyncStorage.removeItem('token');
     await AsyncStorage.removeItem('user');
     onLogout();
+  };
+
+  const handleDownloadNote = async (fileUrl: string) => {
+    if (!fileUrl) {
+      Alert.alert('Error', 'File URL is missing.');
+      return;
+    }
+    const baseUrl = API_URL.replace('/api', '');
+    const downloadUrl = `${baseUrl}${fileUrl}`;
+    
+    try {
+      const supported = await Linking.canOpenURL(downloadUrl);
+      if (supported) {
+        await Linking.openURL(downloadUrl);
+      } else {
+        Alert.alert('Error', 'Cannot open this file type natively.');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to open file.');
+    }
   };
 
   const fetchStudentData = async () => {
@@ -456,10 +479,10 @@ export default function StudentDashboard({ user, onLogout }: { user: any; onLogo
                         {new Date(note.createdAt).toLocaleDateString()}
                       </Text>
                     </View>
-                    <Text style={styles.noteDetails}>By {note.uploadedBy}</Text>
+                    <Text style={styles.noteDetails}>By {note.uploadedByTeacher}</Text>
                     <View style={styles.fileRow}>
-                      <Text style={styles.fileNameText}>📄 {note.fileName}</Text>
-                      <TouchableOpacity onPress={() => Alert.alert('Download', 'Simulated File Download Completed')}>
+                      <Text style={styles.fileNameText}>📄 {note.file_url ? note.file_url.split('/').pop() : 'Unknown file'}</Text>
+                      <TouchableOpacity onPress={() => handleDownloadNote(note.file_url)}>
                         <Text style={styles.downloadLink}>Download</Text>
                       </TouchableOpacity>
                     </View>
@@ -545,11 +568,11 @@ export default function StudentDashboard({ user, onLogout }: { user: any; onLogo
                           </Text>
                         </View>
                         <Text style={styles.noteDetails}>
-                          Uploaded by: {note.uploadedBy}
+                          Subject: {note.subjectName} | By: {note.uploadedByTeacher}
                         </Text>
                         <View style={styles.fileRow}>
-                          <Text style={styles.fileNameText}>📄 {note.fileName}</Text>
-                          <TouchableOpacity onPress={() => Alert.alert('Download', 'Simulated File Download Completed')}>
+                          <Text style={styles.fileNameText}>📄 {note.file_url ? note.file_url.split('/').pop() : 'Unknown file'}</Text>
+                          <TouchableOpacity onPress={() => handleDownloadNote(note.file_url)}>
                             <Text style={styles.downloadLink}>Download</Text>
                           </TouchableOpacity>
                         </View>
