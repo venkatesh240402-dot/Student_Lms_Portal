@@ -512,7 +512,7 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
       });
       setPickedFile({
         uri: result.fileCopyUri || result.uri,
-        name: result.name || 'file',
+        name: decodeURIComponent(result.name || 'file'),
         type: result.type || 'application/octet-stream',
       });
     } catch (e: any) {
@@ -980,8 +980,12 @@ export default function FacultyDashboard({ user, onLogout }: { user: any; onLogo
                       </View>
                     </View>
                     <View style={{flexDirection:'row', alignItems:'center', marginTop:10, gap:10}}>
-                      <Text style={{color:'#52525b', fontSize:11}}>📄 {note.fileName}</Text>
-                      <Text style={{color:'#52525b', fontSize:11}}>{new Date(note.createdAt).toLocaleDateString()}</Text>
+                      <Text style={{color:'#52525b', fontSize:11, flexShrink:1}}>
+                        📄 {note.fileName ? decodeURIComponent(note.fileName).replace(/^\d+-/, '') : 'Unknown file'}
+                      </Text>
+                      <Text style={{color:'#52525b', fontSize:11}}>
+                        {note.createdAt ? new Date(note.createdAt).toLocaleDateString() : ''}
+                      </Text>
                     </View>
                   </View>
                 );

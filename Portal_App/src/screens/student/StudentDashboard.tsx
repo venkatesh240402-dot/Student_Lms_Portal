@@ -476,7 +476,9 @@ export default function StudentDashboard({ user, onLogout }: { user: any; onLogo
                     </View>
                     <Text style={styles.noteDetails}>By {note.uploadedByTeacher}</Text>
                     <View style={styles.fileRow}>
-                      <Text style={styles.fileNameText}>📄 {note.file_url ? decodeURIComponent(note.file_url.split('/').pop() || '') : 'Unknown file'}</Text>
+                      <Text style={[styles.fileNameText, { flexShrink: 1 }]}>
+                        📄 {note.file_url ? decodeURIComponent(note.file_url.split('/').pop() || '').replace(/^\d+-/, '') : 'Unknown file'}
+                      </Text>
                       <TouchableOpacity onPress={() => handleDownloadNote(note.file_url)}>
                         <Text style={styles.downloadLink}>Download</Text>
                       </TouchableOpacity>
@@ -566,7 +568,9 @@ export default function StudentDashboard({ user, onLogout }: { user: any; onLogo
                           Subject: {note.subjectName} | By: {note.uploadedByTeacher}
                         </Text>
                         <View style={styles.fileRow}>
-                          <Text style={styles.fileNameText}>📄 {note.file_url ? decodeURIComponent(note.file_url.split('/').pop() || '') : 'Unknown file'}</Text>
+                          <Text style={[styles.fileNameText, { flexShrink: 1 }]}>
+                            📄 {note.file_url ? decodeURIComponent(note.file_url.split('/').pop() || '').replace(/^\d+-/, '') : 'Unknown file'}
+                          </Text>
                           <TouchableOpacity onPress={() => handleDownloadNote(note.file_url)}>
                             <Text style={styles.downloadLink}>Download</Text>
                           </TouchableOpacity>
